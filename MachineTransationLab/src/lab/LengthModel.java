@@ -31,15 +31,15 @@ public class LengthModel extends Writable {
 	}
 
 	public void addLenghtPair(int sourceLength, int targetLength){
-		lengthPairs[sourceLength][targetLength]++;
+		lengthPairs[sourceLength-1][targetLength-1]++;
 	}
 	
 	public float getLengthPairProbability(int sourceLength, int targetLength){
 		int sum = 1;
 		for(int i=0; i<targetMaxSentenceLenght; i++){
-			sum += lengthPairs[sourceLength][i];
+			sum += lengthPairs[sourceLength-1][i];
 		}
-		return (float)(lengthPairs[sourceLength][targetLength] + 1) / (float)sum;
+		return (float)(lengthPairs[sourceLength-1][targetLength-1] + 1) / (float)sum;
 	}
 
 	@Override

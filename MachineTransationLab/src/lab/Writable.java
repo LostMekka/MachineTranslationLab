@@ -17,7 +17,6 @@ public abstract class Writable implements Serializable {
 	public boolean writeToFile(String base){
 		boolean ans = true;
 		try {
-			//use buffering
 			OutputStream file = new FileOutputStream(getFileName(base));
 			OutputStream buffer = new BufferedOutputStream(file);
 			try (ObjectOutput output = new ObjectOutputStream(buffer)) {
@@ -29,6 +28,21 @@ public abstract class Writable implements Serializable {
 			ans = false;
 		}
 		return ans;
+	}
+	
+	public Writable loadFromFile(String base){
+		try {
+			//use buffering
+			InputStream file = new FileInputStream(getFileName(base));
+			InputStream buffer = new BufferedInputStream(file);
+			try (ObjectInput input = new ObjectInputStream(buffer)) {
+				return (Writable)input.readObject();
+			} catch (Exception e) {
+				return null;
+			}
+		} catch (IOException ex) {
+			return null;
+		}
 	}
 	
 }

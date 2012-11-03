@@ -20,9 +20,9 @@ import java.util.logging.Logger;
  *
  * @author LostMekka
  */
-public class Corpus {
+public class Corpus extends Writable {
 	
-	final static Charset ENCODING = StandardCharsets.UTF_8;
+	final static Charset ENCODING = StandardCharsets.ISO_8859_1;
 	
 	private String base, locale;
 	private int[][] sentences;
@@ -67,8 +67,10 @@ public class Corpus {
 			sentences[i] = line;
 			i++;
 		}
-		System.out.println("done reading.\n    sentences: " + sentenceCount + 
-				", words: " + wordCount + ", distinct words:" + wordStorage.getWordCount());
+		System.out.println("done reading. sentences: " + sentenceCount + 
+				", max sentence length: " + maxSentenceLength + 
+				", words: " + wordCount + 
+				", distinct words:" + wordStorage.getWordCount());
 	}
 	
 	public String getBase() {
@@ -107,6 +109,11 @@ public class Corpus {
 	public int getMaxSentenceLength() {
 		if(wordStorage == null) throw new RuntimeException("readFile not performed yet");
 		return maxSentenceLength;
+	}
+
+	@Override
+	public String getFileName(String base) {
+		return base + "." + locale + ".corpDat";
 	}
 	
 }
