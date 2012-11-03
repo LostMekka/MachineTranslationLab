@@ -4,16 +4,15 @@
  */
 package lab;
 
-import java.io.Serializable;
-import java.util.HashMap;
+import java.util.ArrayList;
 
 /**
  *
  * @author LostMekka
  */
-public class WordStorage implements Serializable {
+public class WordStorage extends Writable {
 	
-	private HashMap<String, Integer> words = new HashMap<>();
+	private ArrayList<String> words = new ArrayList<>();
 	private int wordCount = 0;
 	private boolean finalized = false;
 	private String locale;
@@ -26,25 +25,25 @@ public class WordStorage implements Serializable {
 		return locale;
 	}
 	
+	public String getWord(int index){
+		return words.get(index);
+	}
+	
 	public int getIndex(String word){
-		Integer ans = words.get(word);
-		if(ans == null){
-			return -1;
-		} else {
-			return ans;
+		for(int i=0; i<wordCount; i++){
+			if(words.get(i).equalsIgnoreCase(word)) return i;
 		}
+		return -1;
 	}
 	
 	public int addWord(String word){
 		if(finalized) throw new RuntimeException("cannot add word \"" + word + "\", word storage is finalized!");
-		Integer ans = words.get(word);
-		if(ans == null){
-			words.put(word, wordCount);
-			wordCount++;
-			return wordCount - 1;
-		} else {
-			return ans;
+		for(int i=0; i<wordCount; i++){
+			if(words.get(i).equalsIgnoreCase(word)) return i;
 		}
+		words.add(word);
+		wordCount++;
+		return wordCount-1;
 	}
 	
 	public int getWordCount(){
@@ -57,6 +56,11 @@ public class WordStorage implements Serializable {
 
 	public void finalizeStorage() {
 		finalized = true;
+	}
+	
+	@Override
+	public String getFileName(String base) {
+		return base + "." + locale + ".words";
 	}
 	
 }

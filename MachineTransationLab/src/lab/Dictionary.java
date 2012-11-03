@@ -4,24 +4,22 @@
  */
 package lab;
 
-import java.io.Serializable;
-
 /**
  *
  * @author LostMekka
  */
-public class Dictionary implements Serializable {
+public class Dictionary extends Writable {
 	
 	private float[][] translations;
 	private float lastDiff;
 	private int sourceWordCount, targetWordCount;
-	private WordStorage sourceWordStorage, targetWordStorage;
+	private String sourceLocale, targetLocale;
 
-	public Dictionary(WordStorage sourceWordStorage, WordStorage targetWordStorage) {
-		this.sourceWordStorage = sourceWordStorage;
-		this.targetWordStorage = targetWordStorage;
-		sourceWordCount = sourceWordStorage.getWordCount();
-		targetWordCount = targetWordStorage.getWordCount();
+	public Dictionary(int sourceWordCount, int targetWordCount, String sourceLocale, String targetLocale) {
+		this.sourceWordCount = sourceWordCount;
+		this.targetWordCount = targetWordCount;
+		this.sourceLocale = sourceLocale;
+		this.targetLocale = targetLocale;
 		translations = new float[sourceWordCount][targetWordCount];
 		for(int s=0; s<sourceWordCount; s++){
 			for(int t=0; t<targetWordCount; t++){
@@ -30,13 +28,13 @@ public class Dictionary implements Serializable {
 		}
 		lastDiff = -1f;
 	}
-	
+
 	public String getSourceLocale() {
-		return sourceWordStorage.getLocale();
+		return sourceLocale;
 	}
 
 	public String getTargetLocale() {
-		return targetWordStorage.getLocale();
+		return targetLocale;
 	}
 
 	public float iter(int[][] sourceSentences, int[][] targetSentences){
@@ -71,6 +69,11 @@ public class Dictionary implements Serializable {
 			}
 		}
 		return lastDiff;
+	}
+
+	@Override
+	public String getFileName(String base) {
+		return base + "." + sourceLocale + "_to_" + targetLocale + ".dict";
 	}
 	
 }

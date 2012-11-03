@@ -4,13 +4,11 @@
  */
 package lab;
 
-import java.io.Serializable;
-
 /**
  *
  * @author LostMekka
  */
-public class LengthModel implements Serializable {
+public class LengthModel extends Writable {
 	
 	private int[][] lengthPairs;
 	private String sourceLocale, targetLocale;
@@ -42,6 +40,11 @@ public class LengthModel implements Serializable {
 			sum += lengthPairs[sourceLength][i];
 		}
 		return (float)(lengthPairs[sourceLength][targetLength] + 1) / (float)sum;
+	}
+
+	@Override
+	public String getFileName(String base) {
+		return base + "." + sourceLocale + "_to_" + targetLocale + ".lenMod";
 	}
 	
 }

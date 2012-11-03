@@ -4,46 +4,41 @@
  */
 package lab;
 
-import java.io.Serializable;
-
 /**
  *
  * @author LostMekka
  */
-public class LanguageModel implements Serializable {
+public class LanguageModel extends Writable {
 	
 	private int[][] bigrams;
 	private int wordCount;
-	private WordStorage wordStorage;
+	private String locale;
 
-	public LanguageModel(WordStorage wordStorage) {
-		this.wordStorage = wordStorage;
-		wordCount = wordStorage.getWordCount();
+	public LanguageModel(int wordCount, String locale) {
+		this.wordCount = wordCount;
+		this.locale = locale;
 		bigrams = new int[wordCount][wordCount];
 	}
 
 	public String getLocale() {
-		return wordStorage.getLocale();
+		return locale;
 	}
 
-	public void addBigram(String word1, String word2){
-		int i1 = wordStorage.getIndex(word1);
-		int i2 = wordStorage.getIndex(word2);
-		if(i1 < 0) throw new RuntimeException("word \"" + word1 + "\" not recognized!");
-		if(i2 < 0) throw new RuntimeException("word \"" + word2 + "\" not recognized!");
-		bigrams[i1][i2]++;
+	public void addBigram(int word1, int word2){
+		bigrams[word1][word2]++;
 	}
 	
-	public float getBigramProbability(String word1, String word2){
-		int i1 = wordStorage.getIndex(word1);
-		int i2 = wordStorage.getIndex(word2);
-		if(i1 < 0) throw new RuntimeException("word \"" + word1 + "\" not recognized!");
-		if(i2 < 0) throw new RuntimeException("word \"" + word2 + "\" not recognized!");
+	public float getBigramProbability(int word1, int word2){
 		int sum = 1;
 		for(int i=0; i<wordCount; i++){
-			sum += bigrams[i1][i];
+			sum += bigrams[word1][i];
 		}
-		return (float)(bigrams[i1][i2] + 1) / (float)sum;
+		return (float)(bigrams[word1][word2] + 1) / (float)sum;
+	}
+
+	@Override
+	public String getFileName(String base) {
+		return base + "." + locale + ".langMod";
 	}
 	
 }
