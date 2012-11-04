@@ -10,7 +10,6 @@ package lab;
  */
 public class Dictionary extends Writable {
 	
-	private Thread shutdownThread;
 	private float[][] translations;
 	private float lastDiff;
 	private int sourceWordCount, targetWordCount;
@@ -56,23 +55,32 @@ public class Dictionary extends Writable {
 				if(skalar == 0f){
 					System.out.print("");
 				}
-				skalar = 1/skalar;
+				skalar = 1f/skalar;
 				for(int twi=0; twi<targetSentences[si].length; twi++){
 					int targetWord = targetSentences[si][twi];
-					tmpTrans[swi][twi] += translations[sourceWord][targetWord] * skalar;
+					tmpTrans[sourceWord][targetWord] += translations[sourceWord][targetWord] * skalar;
 				}
 			}
 		}
 		// normalize tmp
-		for(int sourceWord=0; sourceWord<sourceWordCount; sourceWord++){
+		for(int t=0; t<targetWordCount; t++){
 			float sum = 0f;
-			for(int targetWord=0; targetWord<targetWordCount; targetWord++){
-				sum += tmpTrans[sourceWord][targetWord];
+			for(int s=0; s<sourceWordCount; s++){
+				sum += tmpTrans[s][t];
 			}
-			for(int targetWord=0; targetWord<targetWordCount; targetWord++){
-				tmpTrans[sourceWord][targetWord] /= sum;
+			for(int s=0; s<targetWordCount; s++){
+				tmpTrans[s][t] /= sum;
 			}
 		}
+//		for(int s=0; s<sourceWordCount; s++){
+//			float sum = 0f;
+//			for(int t=0; t<targetWordCount; t++){
+//				sum += tmpTrans[s][t];
+//			}
+//			for(int t=0; t<targetWordCount; t++){
+//				tmpTrans[s][t] /= sum;
+//			}
+//		}
 		// take over values and calc diff
 		lastDiff = 0f;
 		for(int sourceWord=0; sourceWord<sourceWordCount; sourceWord++){
@@ -85,32 +93,31 @@ public class Dictionary extends Writable {
 	}
 
 	public int getBestTranslation(int sourceWord){
-		float[] allTranslations = translations[sourceWord];
 		int ans = 0;
-		float bestScore = allTranslations[0];
-		for(int i=1; i<allTranslations.length; i++){
-			if(bestScore < allTranslations[i]){
+		float bestScore = translations[sourceWord][0];
+		for(int i=1; i<translations[sourceWord].length; i++){
+			if(bestScore < translations[sourceWord][i]){
 				ans = i;
-				bestScore = allTranslations[i];
+				bestScore = translations[sourceWord][i];
 			}
 		}
 		return ans;
 	}
 	
-	public int[] getBestTranslations(int sourceWord, int translationCount){
-		int transCount = translations[sourceWord].length;
-		if(transCount < translationCount) translationCount = transCount;
-		int[] bestTranslation = new int[translationCount];
-		float[] bestScores = new float[translationCount];
-		for(int i=0; i<translationCount; i++){
-			bestTranslation[i] = i;
-			bestScores[i] = translations[sourceWord][i];
+	public int[] getBestTranslations(int sourceWord, int transCount){
+		int totalTransCount = translations[sourceWord].length;
+		if(totalTransCount < transCount) transCount = totalTransCount;
+		int[] bestTranslation = new int[transCount];
+		float[] bestScores = new float[transCount];
+		for(int i=0; i<transCount; i++){
+			bestTranslation[i] = -1;
+			bestScores[i] = -1f;
 		}
-		for(int i=translationCount; i<transCount; i++){
+		for(int i=0; i<totalTransCount; i++){
 			float s = translations[sourceWord][i];
-			for(int a=0; a<translationCount; a++){
+			for(int a=0; a<transCount; a++){
 				if(s > bestScores[a]){
-					for(int a2=translationCount-1; a2>a; a2--){
+					for(int a2=transCount-1; a2>a; a2--){
 						bestTranslation[a2] = bestTranslation[a2-1];
 						bestScores[a2] = bestScores[a2-1];
 					}

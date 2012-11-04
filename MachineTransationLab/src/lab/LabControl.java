@@ -16,6 +16,7 @@ public class LabControl {
 	public static void main(String[] args) {
 		ShutdownManager sd = new ShutdownManager();
 		sd.beginShutdownInjection();
+		try{
 		if(args.length < 4){
 			System.err.println("wrong parameter count!");
 			System.exit(1);
@@ -29,6 +30,10 @@ public class LabControl {
 				System.exit(1);
 			}
 			control.executeLookupAction(args[0], args[1], args[2], args[4]);
+		}
+		} catch (Exception e){
+			System.err.println("ERROR! aborting all actions!");
+			e.printStackTrace();
 		}
 		sd.endShutdownInjection();
 	}
@@ -61,10 +66,10 @@ public class LabControl {
 	}
 	
 	private void trainDictionary(Corpus sourceCorpus, Corpus targetCorpus, Dictionary dictionary){
-		System.out.println("(this should be stoppable. it is not...)");
+		System.out.println("(you can stop the training with ctrl-c and resume later with the \"resumetrain\" command)");
 		float delta = 1000f;
 		int i = 1;
-		while(delta > 0.0000000001f){
+		while(delta > 0.0001f){
 			delta = dictionary.iter(sourceCorpus.getSentences(), targetCorpus.getSentences());
 			System.out.format("    iteration %4d - delta = %13.10f\n", i, delta);
 			i++;
