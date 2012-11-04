@@ -10,7 +10,7 @@ package lab;
  */
 public class Dictionary extends Writable {
 	
-	private float[][] translations;
+	private float[][] translations, tmpTrans;
 	private float lastDiff;
 	private int sourceWordCount, targetWordCount;
 	private String sourceLocale, targetLocale;
@@ -21,6 +21,8 @@ public class Dictionary extends Writable {
 		this.sourceLocale = sourceLocale;
 		this.targetLocale = targetLocale;
 		translations = new float[sourceWordCount][targetWordCount];
+		tmpTrans = new float[sourceWordCount][targetWordCount];
+		tmpTrans = null;
 		for(int s=0; s<sourceWordCount; s++){
 			for(int t=0; t<targetWordCount; t++){
 				translations[s][t] = 1f;
@@ -28,7 +30,7 @@ public class Dictionary extends Writable {
 		}
 		lastDiff = -1f;
 	}
-
+	
 	public String getSourceLocale() {
 		return sourceLocale;
 	}
@@ -38,7 +40,7 @@ public class Dictionary extends Writable {
 	}
 
 	public float iter(int[][] sourceSentences, int[][] targetSentences){
-		float[][] tmpTrans = new float[sourceWordCount][targetWordCount];
+		tmpTrans = new float[sourceWordCount][targetWordCount];
 		for(int s=0; s<sourceWordCount; s++){
 			for(int t=0; t<targetWordCount; t++){
 				tmpTrans[s][t] = 0f;
@@ -68,19 +70,10 @@ public class Dictionary extends Writable {
 			for(int s=0; s<sourceWordCount; s++){
 				sum += tmpTrans[s][t];
 			}
-			for(int s=0; s<targetWordCount; s++){
+			for(int s=0; s<sourceWordCount; s++){
 				tmpTrans[s][t] /= sum;
 			}
 		}
-//		for(int s=0; s<sourceWordCount; s++){
-//			float sum = 0f;
-//			for(int t=0; t<targetWordCount; t++){
-//				sum += tmpTrans[s][t];
-//			}
-//			for(int t=0; t<targetWordCount; t++){
-//				tmpTrans[s][t] /= sum;
-//			}
-//		}
 		// take over values and calc diff
 		lastDiff = 0f;
 		for(int sourceWord=0; sourceWord<sourceWordCount; sourceWord++){
@@ -89,6 +82,7 @@ public class Dictionary extends Writable {
 				translations[sourceWord][targetWord] = tmpTrans[sourceWord][targetWord];
 			}
 		}
+		tmpTrans = null;
 		return lastDiff;
 	}
 

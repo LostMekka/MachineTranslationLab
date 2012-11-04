@@ -4,6 +4,12 @@
  */
 package lab;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  *
  * @author LostMekka
@@ -14,28 +20,11 @@ public class LabControl {
 	 * @param args the command line arguments
 	 */
 	public static void main(String[] args) {
-		ShutdownManager sd = new ShutdownManager();
-		sd.beginShutdownInjection();
-		try{
-		if(args.length < 4){
-			System.err.println("wrong parameter count!");
-			System.exit(1);
-		}
-		LabControl control = new LabControl(sd);
+		LabControl control = new LabControl(new ShutdownManager());
+		if(args.length < 4) control.err("wrong parameter count!");
 		if(args[3].equalsIgnoreCase("train")) control.executeTrainAction(args[0], args[1], args[2]);
 		if(args[3].equalsIgnoreCase("resumetrain")) control.executeResumeTrainAction(args[0], args[1], args[2]);
-		if(args[3].equalsIgnoreCase("lookup")){
-			if(args.length < 5){
-				System.err.println("wrong parameter count!");
-				System.exit(1);
-			}
-			control.executeLookupAction(args[0], args[1], args[2], args[4]);
-		}
-		} catch (Exception e){
-			System.err.println("ERROR! aborting all actions!");
-			e.printStackTrace();
-		}
-		sd.endShutdownInjection();
+		if(args[3].equalsIgnoreCase("lookup")) control.executeLookupAction(args[0], args[1], args[2]);
 	}
 	
 	private ShutdownManager shutdownManager;
@@ -69,7 +58,7 @@ public class LabControl {
 		System.out.println("(you can stop the training with ctrl-c and resume later with the \"resumetrain\" command)");
 		float delta = 1000f;
 		int i = 1;
-		while(delta > 0.0001f){
+		while(delta > 0.00001f){
 			delta = dictionary.iter(sourceCorpus.getSentences(), targetCorpus.getSentences());
 			System.out.format("    iteration %4d - delta = %13.10f\n", i, delta);
 			i++;
@@ -79,13 +68,17 @@ public class LabControl {
 	
 	private void lookup(Corpus sourceCorpus, Corpus targetCorpus, Dictionary dictionary, String word){
 		int sourceWord = sourceCorpus.getWordStorage().getIndex(word);
+		if(sourceWord < 0){
+			System.err.format("ERROR: \"%s\" is not contained in learned language.\n", word);
+			return;
+		}
 		int[] bestWords = dictionary.getBestTranslations(sourceWord, 10);
 		float[] scores = dictionary.getTranslationScores(sourceWord, bestWords);
+		System.out.format("best translations for \"%s\":\n", word);
 		for(int i=0; i<bestWords.length; i++){
 			String targetWord = targetCorpus.getWordStorage().getWord(bestWords[i]);
-			System.out.format("%4d: %10.8f - %s\n", i, scores[i], targetWord);
+			System.out.format("%4d: %10.8f - %s\n", i+1, scores[i], targetWord);
 		}
-		System.out.format("%s\n", targetCorpus.getWordStorage().getWord(dictionary.getBestTranslation(sourceWord)));
 	}
 	
 	private void print(WordStorage storage){
@@ -100,7 +93,7 @@ public class LabControl {
 		
 		System.out.println("creating corpus objects...");
 		Corpus sourceCorpus = new Corpus(base, sourceLocale);
-		Corpus targetCorpus = new Corpus(base, targetLocale);		
+		Corpus targetCorpus = new Corpus(base, targetLocale);	
 		System.out.println("reading source corpus file...");
 		sourceCorpus.readFile();
 		System.out.println("reading target corpus file...");
@@ -137,10 +130,15 @@ public class LabControl {
 		
 		System.out.println("creating dictionary object...");
 		Dictionary dictionary = new Dictionary(sourceStorage.getWordCount(), targetStorage.getWordCount(), sourceLocale, targetLocale);
-		System.out.println("training dictionary...");
-		trainDictionary(sourceCorpus, targetCorpus, dictionary);
-		System.out.println("writing dictionary to disk...");
-		dictionary.writeToFile(base);
+		try{
+			shutdownManager.beginShutdownInjection();
+			System.out.println("training dictionary...");
+			trainDictionary(sourceCorpus, targetCorpus, dictionary);
+			System.out.println("writing dictionary to disk...");
+			dictionary.writeToFile(base);
+		} finally {
+			shutdownManager.endShutdownInjection();
+		}
 		System.out.println();
 		
 		System.out.println("training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.\n");
@@ -155,8 +153,10 @@ public class LabControl {
 		Corpus targetCorpus = new Corpus(base, targetLocale);		
 		System.out.println("reading source corpus data and word storage from disk...");
 		sourceCorpus = (Corpus)sourceCorpus.loadFromFile(base);
+		if(sourceCorpus == null) err("could not read source corpus data!");
 		System.out.println("reading target corpus data and word storage from disk...");
 		targetCorpus = (Corpus)targetCorpus.loadFromFile(base);
+		if(targetCorpus == null) err("could not read target corpus data!");
 		System.out.println("extracting word storages from corpora...");
 		WordStorage sourceStorage = sourceCorpus.getWordStorage();
 		WordStorage targetStorage = targetCorpus.getWordStorage();
@@ -166,17 +166,23 @@ public class LabControl {
 		Dictionary dictionary = new Dictionary(sourceStorage.getWordCount(), targetStorage.getWordCount(), sourceLocale, targetLocale);
 		System.out.println("reading dictionary from disk...");
 		dictionary = (Dictionary)dictionary.loadFromFile(base);
-		System.out.println("resume training dictionary...");
-		trainDictionary(sourceCorpus, targetCorpus, dictionary);
-		System.out.println("writing dictionary to disk...");
-		dictionary.writeToFile(base);
+		if(dictionary == null) err("could not read dictionary data!");
+		try{
+			shutdownManager.beginShutdownInjection();
+			System.out.println("resume training dictionary...");
+			trainDictionary(sourceCorpus, targetCorpus, dictionary);
+			System.out.println("writing dictionary to disk...");
+			dictionary.writeToFile(base);
+		} finally {
+			shutdownManager.endShutdownInjection();
+		}
 		System.out.println();
 		
 		System.out.println("resume training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.\n");
 	}
 	
-	public void executeLookupAction(String base, String sourceLocale, String targetLocale, String lookupWord){
-		System.out.println("lookup of word \"" + lookupWord + "\" in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
+	public void executeLookupAction(String base, String sourceLocale, String targetLocale){
+		System.out.println("lookup in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
 		System.out.println();
 		
 		System.out.println("creating corpus objects...");
@@ -184,8 +190,10 @@ public class LabControl {
 		Corpus targetCorpus = new Corpus(base, targetLocale);		
 		System.out.println("reading source corpus data and word storage from disk...");
 		sourceCorpus = (Corpus)sourceCorpus.loadFromFile(base);
+		if(sourceCorpus == null) err("could not read source corpus data!");
 		System.out.println("reading target corpus data and word storage from disk...");
 		targetCorpus = (Corpus)targetCorpus.loadFromFile(base);
+		if(targetCorpus == null) err("could not read target corpus data!");
 		System.out.println("extracting word storages from corpora...");
 		WordStorage sourceStorage = sourceCorpus.getWordStorage();
 		WordStorage targetStorage = targetCorpus.getWordStorage();
@@ -195,10 +203,27 @@ public class LabControl {
 		Dictionary dictionary = new Dictionary(sourceStorage.getWordCount(), targetStorage.getWordCount(), sourceLocale, targetLocale);
 		System.out.println("reading dictionary from disk...");
 		dictionary = (Dictionary)dictionary.loadFromFile(base);
-		lookup(sourceCorpus, targetCorpus, dictionary, lookupWord);
+		if(dictionary == null) err("could not read dictionary data!");
 		System.out.println();
+
+		System.out.println("listening on stdin... (type words here)\n");
+		BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+		String s;
+		try {
+			while ((s = in.readLine()) != null && s.length() != 0){
+				lookup(sourceCorpus, targetCorpus, dictionary, s);
+				System.out.println();
+			}
+		} catch (IOException ex) {
+			err("could not read from stdin!");
+		}
 		
-		System.out.println("lookup of word \"" + lookupWord + "\" in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.");
+		System.out.println("lookup in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.");
 	}
 
+	private void err(String s){
+		System.err.println("ERROR: " + s);
+		System.exit(1);
+	}
+	
 }

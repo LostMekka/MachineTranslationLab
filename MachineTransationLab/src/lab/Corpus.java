@@ -22,7 +22,7 @@ import java.util.logging.Logger;
  */
 public class Corpus extends Writable {
 	
-	final static Charset ENCODING = StandardCharsets.ISO_8859_1;
+	final static Charset ENCODING = StandardCharsets.UTF_8;
 	
 	private String base, locale;
 	private int[][] sentences;
