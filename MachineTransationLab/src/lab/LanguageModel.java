@@ -11,9 +11,9 @@ package lab;
 public class LanguageModel extends Writable {
 	
 	public static final int SENTENCE_BEGIN_WORD = -1;
-	public static final int SENTENCE_END_WORD = -1;
+	public static final int SENTENCE_END_WORD = -2;
 	
-	private static final int ARRAY_OFFSET = 1;
+	private static final int ARRAY_OFFSET = 2;
 	
 	private int[][] bigrams;
 	private int wordCount;
