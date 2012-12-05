@@ -12,12 +12,17 @@ import java.util.ArrayList;
  */
 public class WordStorage extends Writable {
 	
+	public static String getFileName(String base, String locale) {
+		return base + "." + locale + ".words";
+	}
+	
 	private ArrayList<String> words = new ArrayList<>();
 	private int wordCount = 0;
 	private boolean finalized = false;
 	private String locale;
 
-	public WordStorage(String locale) {
+	public WordStorage(String base, String locale) {
+		super(base);
 		this.locale = locale;
 	}
 
@@ -56,11 +61,6 @@ public class WordStorage extends Writable {
 
 	public void finalizeStorage() {
 		finalized = true;
-	}
-	
-	@Override
-	public String getFileName(String base) {
-		return base + "." + locale + ".words";
 	}
 	
 }

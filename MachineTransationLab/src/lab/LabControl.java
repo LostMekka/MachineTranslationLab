@@ -7,6 +7,9 @@ package lab;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -16,15 +19,40 @@ import java.util.logging.Logger;
  */
 public class LabControl {
 	
+	public static void log(String msg){
+		System.out.println(msg);
+	}
+			
+	public static void log() {
+		System.out.println();
+	}
+	
+	public static void err(String msg){
+		System.err.println(msg);
+	}
+			
+	public static void err() {
+		System.err.println();
+	}
+
+	public void halt() {
+		if(shutdownManager != null) shutdownManager.endShutdownInjection();
+		System.exit(1);
+	}
+
 	/**
 	 * @param args the command line arguments
 	 */
 	public static void main(String[] args) {
 		LabControl control = new LabControl(new ShutdownManager());
-		if(args.length < 4) control.err("wrong parameter count!");
+		if(args.length < 4){
+			control.err("wrong parameter count!");
+			control.halt();
+		}
 		if(args[3].equalsIgnoreCase("train")) control.executeTrainAction(args[0], args[1], args[2]);
 		if(args[3].equalsIgnoreCase("resumetrain")) control.executeResumeTrainAction(args[0], args[1], args[2]);
 		if(args[3].equalsIgnoreCase("lookup")) control.executeLookupAction(args[0], args[1], args[2]);
+		if(args[3].equalsIgnoreCase("decode")) control.executeDecodeAction(args[0], args[1], args[2]);
 	}
 	
 	private ShutdownManager shutdownManager;
@@ -40,7 +68,7 @@ public class LabControl {
 				model.addBigram(words[i], words[i+1]);
 			}
 			model.addBigram(LanguageModel.SENTENCE_BEGIN_WORD, words[0]);
-			model.addBigram(LanguageModel.SENTENCE_END_WORD, words[words.length-1]);
+			model.addBigram(words[words.length-1], LanguageModel.SENTENCE_END_WORD);
 		}
 	}
 	
@@ -55,10 +83,10 @@ public class LabControl {
 	}
 	
 	private void trainDictionary(Corpus sourceCorpus, Corpus targetCorpus, Dictionary dictionary){
-		System.out.println("(you can stop the training with ctrl-c and resume later with the \"resumetrain\" command)");
+		log("(you can stop the training with ctrl-c and resume later with the \"resumetrain\" command)");
 		float delta = 1000f;
 		int i = 1;
-		while(delta > 0.00001f){
+		while(delta > 0.000001f){
 			delta = dictionary.iter(sourceCorpus.getSentences(), targetCorpus.getSentences());
 			System.out.format("    iteration %4d - delta = %13.10f\n", i, delta);
 			i++;
@@ -66,8 +94,8 @@ public class LabControl {
 		}
 	}
 	
-	private void lookup(Corpus sourceCorpus, Corpus targetCorpus, Dictionary dictionary, String word){
-		int sourceWord = sourceCorpus.getWordStorage().getIndex(word);
+	private void lookup(WordStorage sourceWordStorage, WordStorage tagetWordStorage, Dictionary dictionary, String word){
+		int sourceWord = sourceWordStorage.getIndex(word);
 		if(sourceWord < 0){
 			System.err.format("ERROR: \"%s\" is not contained in learned language.\n", word);
 			return;
@@ -76,154 +104,236 @@ public class LabControl {
 		float[] scores = dictionary.getTranslationScores(sourceWord, bestWords);
 		System.out.format("best translations for \"%s\":\n", word);
 		for(int i=0; i<bestWords.length; i++){
-			String targetWord = targetCorpus.getWordStorage().getWord(bestWords[i]);
+			String targetWord = tagetWordStorage.getWord(bestWords[i]);
 			System.out.format("%4d: %10.8f - %s\n", i+1, scores[i], targetWord);
 		}
 	}
 	
+	private void addNewStackSentenceToList(SortedSet<StackSentence> list, 
+			StackSentence parent, int newWord, int[] sourceSentence, 
+			Dictionary dict, LanguageModel langMod, LengthModel lenMod){
+		StackSentence s = new StackSentence(parent, newWord, sourceSentence, dict, langMod, lenMod);
+		list.add(s);
+		if(list.size() > 10){
+			list.remove(list.first());
+		}
+	}
+	
+	private void printStack(SortedSet<StackSentence> list, WordStorage targetStorage){
+		System.out.flush();
+		System.err.flush();
+		for(StackSentence s:list){
+			err(s.toStringWithStorage(targetStorage));
+		}
+		err();
+	}
+	
+	private void decode(WordStorage sourceWordStorage, WordStorage targetWordStorage, 
+			LengthModel lengthModel, LanguageModel targetLanguageModel, 
+			Dictionary dictionary, String[] sentence){
+		// generate source sentence as int array
+		int[] sourceSentence = new int[sentence.length];
+		for(int i=0; i<sentence.length; i++){
+			sourceSentence[i] = sourceWordStorage.getIndex(sentence[i]);
+			if(sourceSentence[i] == -1) err("WARNING: unknown word: " + sentence[i]);
+		}
+		// init sentences
+		SortedSet<StackSentence> list = new ConcurrentSkipListSet<>();
+		StackSentence hypo = new StackSentence(null, 
+				LanguageModel.SENTENCE_BEGIN_WORD, sourceSentence,
+				dictionary, targetLanguageModel, lengthModel);
+		// stack generation loop
+		for(;;){
+			// add sentence end
+			addNewStackSentenceToList(list, hypo, LanguageModel.SENTENCE_END_WORD, 
+					sourceSentence, dictionary, targetLanguageModel, lengthModel);
+			// add all other target words
+			for(int w=0; w<targetWordStorage.getWordCount(); w++){
+				addNewStackSentenceToList(list, hypo, w, 
+						sourceSentence, dictionary, targetLanguageModel, lengthModel);
+			}
+			printStack(list, targetWordStorage);
+			// promote best sentence to hypothesis
+			hypo = list.last();
+			list.remove(hypo);
+			// check if hypothesis is complete
+			if(hypo.words.length > 0) if(hypo.words[hypo.words.length-1] == LanguageModel.SENTENCE_END_WORD) break;
+		}
+		// hypo is the target sentence. print it!
+		String s = "";
+		for(int i=1; i<hypo.words.length-1; i++){
+			s = s + targetWordStorage.getWord(hypo.words[i]) + " ";
+		}
+		log(s);
+	}
+	
 	private void print(WordStorage storage){
 		for(int i=0; i<storage.getWordCount(); i++){
-			System.out.println(storage.getWord(i));
+			log(storage.getWord(i));
 		}
 	}
 	
 	public void executeTrainAction(String base, String sourceLocale, String targetLocale){
-		System.out.println("training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
-		System.out.println();
+		log("training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
+		log();
 		
-		System.out.println("creating corpus objects...");
-		Corpus sourceCorpus = new Corpus(base, sourceLocale);
-		Corpus targetCorpus = new Corpus(base, targetLocale);	
-		System.out.println("reading source corpus file...");
-		sourceCorpus.readFile();
-		System.out.println("reading target corpus file...");
-		targetCorpus.readFile();
-		System.out.println("extracting word storages from corpora...");
-		WordStorage sourceStorage = sourceCorpus.getWordStorage();
-		WordStorage targetStorage = targetCorpus.getWordStorage();
-		System.out.println("writing source corpus data and word storage to disk...");
-		sourceCorpus.writeToFile(base);
-		System.out.println("writing target corpus data and word storage to disk...");
-		targetCorpus.writeToFile(base);
-		System.out.println();
+		log("reading source corpus file...");
+		CorpusHolder sourceHolder = new CorpusHolder(base, sourceLocale);
+		log("reading target corpus file...");
+		CorpusHolder targetHolder = new CorpusHolder(base, targetLocale);
+		Corpus sourceCorpus = sourceHolder.getCorpus();
+		Corpus targetCorpus = targetHolder.getCorpus();	
+		log("extracting word storages from corpora...");
+		WordStorage sourceStorage = sourceHolder.getStorage();
+		WordStorage targetStorage = targetHolder.getStorage();
+		log("writing source corpus data to disk...");
+		sourceCorpus.writeToFile(Corpus.getFileName(base, sourceLocale));
+		log("writing source word storage to disk...");
+		sourceStorage.writeToFile(WordStorage.getFileName(base, sourceLocale));
+		log("writing target corpus data to disk...");
+		targetCorpus.writeToFile(Corpus.getFileName(base, targetLocale));
+		log("writing target word storage to disk...");
+		targetStorage.writeToFile(WordStorage.getFileName(base, targetLocale));
+		log();
 		
-		System.out.println("creating language model objects...");
-		LanguageModel sourceModel = new LanguageModel(sourceStorage.getWordCount(), sourceLocale);
-		LanguageModel targetModel = new LanguageModel(targetStorage.getWordCount(), targetLocale);
-		System.out.println("training source language model...");
-		trainLanguageModel(sourceCorpus, sourceModel);
-		System.out.println("writing source language model to disk...");
-		sourceModel.writeToFile(base);
-		System.out.println("training target language model...");
+		log("creating target language model object...");
+		LanguageModel targetModel = new LanguageModel(base, targetLocale, targetStorage.getWordCount());
+		log("training target language model...");
 		trainLanguageModel(targetCorpus, targetModel);
-		System.out.println("writing target language model to disk...");
-		targetModel.writeToFile(base);
-		System.out.println();
+		log("writing target language model to disk...");
+		targetModel.writeToFile(LanguageModel.getFileName(base, targetLocale));
+		log();
 		
-		System.out.println("creating length model object...");
-		LengthModel lengthModel = new LengthModel(sourceLocale, targetLocale, sourceCorpus.getMaxSentenceLength(), targetCorpus.getMaxSentenceLength());
-		System.out.println("training length model...");
+		log("creating length model object...");
+		LengthModel lengthModel = new LengthModel(base, 
+				sourceLocale, targetLocale, 
+				sourceCorpus.getMaxSentenceLength(), 
+				targetCorpus.getMaxSentenceLength());
+		log("training length model...");
 		trainLengthModel(sourceCorpus, targetCorpus, lengthModel);
-		System.out.println("writing length model to disk...");
-		lengthModel.writeToFile(base);
-		System.out.println();
+		log("writing length model to disk...");
+		lengthModel.writeToFile(LengthModel.getFileName(base, sourceLocale, targetLocale));
+		log();
 		
-		System.out.println("creating dictionary object...");
-		Dictionary dictionary = new Dictionary(sourceStorage.getWordCount(), targetStorage.getWordCount(), sourceLocale, targetLocale);
+		log("creating dictionary object...");
+		Dictionary dictionary = new Dictionary(base, 
+				sourceLocale, targetLocale, 
+				sourceStorage.getWordCount(), targetStorage.getWordCount());
 		try{
 			shutdownManager.beginShutdownInjection();
-			System.out.println("training dictionary...");
+			log("training dictionary...");
 			trainDictionary(sourceCorpus, targetCorpus, dictionary);
-			System.out.println("writing dictionary to disk...");
-			dictionary.writeToFile(base);
+			log("writing dictionary to disk...");
+			dictionary.writeToFile(Dictionary.getFileName(base, sourceLocale, targetLocale));
 		} finally {
 			shutdownManager.endShutdownInjection();
 		}
-		System.out.println();
+		log();
 		
-		System.out.println("training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.\n");
+		log("training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.\n");
 	}
 	
 	public void executeResumeTrainAction(String base, String sourceLocale, String targetLocale){
-		System.out.println("resume training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
-		System.out.println();
+		log("resume training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
+		log();
 		
-		System.out.println("creating corpus objects...");
-		Corpus sourceCorpus = new Corpus(base, sourceLocale);
-		Corpus targetCorpus = new Corpus(base, targetLocale);		
-		System.out.println("reading source corpus data and word storage from disk...");
-		sourceCorpus = (Corpus)sourceCorpus.loadFromFile(base);
+		log("reading source corpus data from disk...");
+		Corpus sourceCorpus = (Corpus)Corpus.loadFromFile(Corpus.getFileName(base, sourceLocale));
 		if(sourceCorpus == null) err("could not read source corpus data!");
-		System.out.println("reading target corpus data and word storage from disk...");
-		targetCorpus = (Corpus)targetCorpus.loadFromFile(base);
+		log("reading target corpus data from disk...");
+		Corpus targetCorpus = (Corpus)Corpus.loadFromFile(Corpus.getFileName(base, targetLocale));
 		if(targetCorpus == null) err("could not read target corpus data!");
-		System.out.println("extracting word storages from corpora...");
-		WordStorage sourceStorage = sourceCorpus.getWordStorage();
-		WordStorage targetStorage = targetCorpus.getWordStorage();
-		System.out.println();
+		log();
 		
-		System.out.println("creating dictionary object...");
-		Dictionary dictionary = new Dictionary(sourceStorage.getWordCount(), targetStorage.getWordCount(), sourceLocale, targetLocale);
-		System.out.println("reading dictionary from disk...");
-		dictionary = (Dictionary)dictionary.loadFromFile(base);
+		log("reading dictionary from disk...");
+		Dictionary dictionary = (Dictionary)Dictionary.loadFromFile(Dictionary.getFileName(base, sourceLocale, targetLocale));
 		if(dictionary == null) err("could not read dictionary data!");
 		try{
 			shutdownManager.beginShutdownInjection();
-			System.out.println("resume training dictionary...");
+			log("resume training dictionary...");
 			trainDictionary(sourceCorpus, targetCorpus, dictionary);
-			System.out.println("writing dictionary to disk...");
+			log("writing dictionary to disk...");
 			dictionary.writeToFile(base);
 		} finally {
 			shutdownManager.endShutdownInjection();
 		}
-		System.out.println();
+		log();
 		
-		System.out.println("resume training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.\n");
+		log("resume training of base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.\n");
 	}
 	
 	public void executeLookupAction(String base, String sourceLocale, String targetLocale){
-		System.out.println("lookup in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
-		System.out.println();
+		log("lookup in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
+		log();
 		
-		System.out.println("creating corpus objects...");
-		Corpus sourceCorpus = new Corpus(base, sourceLocale);
-		Corpus targetCorpus = new Corpus(base, targetLocale);		
-		System.out.println("reading source corpus data and word storage from disk...");
-		sourceCorpus = (Corpus)sourceCorpus.loadFromFile(base);
-		if(sourceCorpus == null) err("could not read source corpus data!");
-		System.out.println("reading target corpus data and word storage from disk...");
-		targetCorpus = (Corpus)targetCorpus.loadFromFile(base);
-		if(targetCorpus == null) err("could not read target corpus data!");
-		System.out.println("extracting word storages from corpora...");
-		WordStorage sourceStorage = sourceCorpus.getWordStorage();
-		WordStorage targetStorage = targetCorpus.getWordStorage();
-		System.out.println();
+		log("reading target word storage from disk...");
+		WordStorage sourceStorage = (WordStorage)WordStorage.loadFromFile(WordStorage.getFileName(base, sourceLocale));
+		if(sourceStorage == null) err("could not read target word storage!");
+		log("reading target word storage from disk...");
+		WordStorage targetStorage = (WordStorage)WordStorage.loadFromFile(WordStorage.getFileName(base, targetLocale));
+		if(targetStorage == null) err("could not read target word storage!");
+		log();
 		
-		System.out.println("creating dictionary object...");
-		Dictionary dictionary = new Dictionary(sourceStorage.getWordCount(), targetStorage.getWordCount(), sourceLocale, targetLocale);
-		System.out.println("reading dictionary from disk...");
-		dictionary = (Dictionary)dictionary.loadFromFile(base);
+		log("reading dictionary from disk...");
+		Dictionary dictionary = (Dictionary)Dictionary.loadFromFile(Dictionary.getFileName(base, sourceLocale, targetLocale));
 		if(dictionary == null) err("could not read dictionary data!");
-		System.out.println();
+		log();
 
-		System.out.println("listening on stdin... (type words here)\n");
+		log("listening on stdin... (type words here)\n");
 		BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 		String s;
 		try {
 			while ((s = in.readLine()) != null && s.length() != 0){
-				lookup(sourceCorpus, targetCorpus, dictionary, s);
-				System.out.println();
+				lookup(sourceStorage, targetStorage, dictionary, s);
+				log();
 			}
 		} catch (IOException ex) {
 			err("could not read from stdin!");
 		}
 		
-		System.out.println("lookup in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.");
+		log("lookup in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.");
 	}
+	
+	public void executeDecodeAction(String base, String sourceLocale, String targetLocale){
+		err("decoding in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
+		err();
+		
+		err("reading target word storage from disk...");
+		WordStorage sourceStorage = (WordStorage)WordStorage.loadFromFile(WordStorage.getFileName(base, sourceLocale));
+		if(sourceStorage == null) err("could not read target word storage!");
+		err("reading target word storage from disk...");
+		WordStorage targetStorage = (WordStorage)WordStorage.loadFromFile(WordStorage.getFileName(base, targetLocale));
+		if(targetStorage == null) err("could not read target word storage!");
+		err();
+		
+		err("reading target language model from disk...");
+		LanguageModel targetLanguageModel = (LanguageModel)LanguageModel.loadFromFile(LanguageModel.getFileName(base, targetLocale));
+		if(targetLanguageModel == null) err("could not read dictionary data!");
+		err();
 
-	private void err(String s){
-		System.err.println("ERROR: " + s);
-		System.exit(1);
+		err("reading length model from disk...");
+		LengthModel lengthModel = (LengthModel)LengthModel.loadFromFile(LengthModel.getFileName(base, sourceLocale, targetLocale));
+		if(lengthModel == null) err("could not read length model!");
+		err();
+
+		err("reading dictionary from disk...");
+		Dictionary dictionary = (Dictionary)Dictionary.loadFromFile(Dictionary.getFileName(base, sourceLocale, targetLocale));
+		if(dictionary == null) err("could not read dictionary data!");
+		err();
+
+		err("listening on stdin... (type words here)\n");
+		BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+		String s;
+		try {
+			while ((s = in.readLine()) != null && s.length() != 0){
+				decode(sourceStorage, targetStorage, lengthModel, targetLanguageModel, dictionary, s.split(" "));
+				err();
+			}
+		} catch (IOException ex) {
+			err("could not read from stdin!");
+		}
+		
+		err("decoding in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\" done.");
 	}
 	
 }

@@ -10,15 +10,19 @@ package lab;
  */
 public class LengthModel extends Writable {
 	
+	public static String getFileName(String base, String sourceLocale, String targetLocale) {
+		return base + "." + sourceLocale + "_to_" + targetLocale + ".lenMod";
+	}
+	
 	private int[][] lengthPairs;
 	private String sourceLocale, targetLocale;
-	private int sourceMaxSentenceLenght, targetMaxSentenceLenght;
 
-	public LengthModel(String sourceLocale, String targetLocale, int sourceMaxSentenceLenght, int targetMaxSentenceLenght) {
+	public LengthModel(String base, 
+			String sourceLocale, String targetLocale, 
+			int sourceMaxSentenceLenght, int targetMaxSentenceLenght){
+		super(base);
 		this.sourceLocale = sourceLocale;
 		this.targetLocale = targetLocale;
-		this.sourceMaxSentenceLenght = sourceMaxSentenceLenght;
-		this.targetMaxSentenceLenght = targetMaxSentenceLenght;
 		lengthPairs = new int[sourceMaxSentenceLenght][targetMaxSentenceLenght];
 	}
 
@@ -36,15 +40,17 @@ public class LengthModel extends Writable {
 	
 	public float getLengthPairProbability(int sourceLength, int targetLength){
 		int sum = 1;
-		for(int i=0; i<targetMaxSentenceLenght; i++){
+		for(int i=0; i<lengthPairs[sourceLength-1].length; i++){
 			sum += lengthPairs[sourceLength-1][i];
 		}
 		return (float)(lengthPairs[sourceLength-1][targetLength-1] + 1) / (float)sum;
 	}
 
-	@Override
-	public String getFileName(String base) {
-		return base + "." + sourceLocale + "_to_" + targetLocale + ".lenMod";
+	public int getHighestPossibleTargetLength(int sourceLength){
+		for(int l=lengthPairs[sourceLength-1].length-1; l>0; l--){
+			if(lengthPairs[sourceLength][l] > 0) return l + 1;
+		}
+		return 1;
 	}
 	
 }

@@ -10,12 +10,19 @@ package lab;
  */
 public class Dictionary extends Writable {
 	
+	public static String getFileName(String base, String sourceLocale, String targetLocale){
+		return base + "." + sourceLocale + "_to_" + targetLocale + ".dict";
+	}
+	
 	private float[][] translations, tmpTrans;
 	private float lastDiff;
 	private int sourceWordCount, targetWordCount;
 	private String sourceLocale, targetLocale;
 
-	public Dictionary(int sourceWordCount, int targetWordCount, String sourceLocale, String targetLocale) {
+	public Dictionary(String base, 
+			String sourceLocale, String targetLocale, 
+			int sourceWordCount, int targetWordCount){
+		super(base);
 		this.sourceWordCount = sourceWordCount;
 		this.targetWordCount = targetWordCount;
 		this.sourceLocale = sourceLocale;
@@ -71,7 +78,7 @@ public class Dictionary extends Writable {
 				sum += tmpTrans[s][t];
 			}
 			for(int s=0; s<sourceWordCount; s++){
-				tmpTrans[s][t] /= sum;
+				tmpTrans[s][t] = tmpTrans[s][t] / sum;
 			}
 		}
 		// take over values and calc diff
@@ -134,11 +141,6 @@ public class Dictionary extends Writable {
 			ans[i] = translations[sourceWord][targetWords[i]];
 		}
 		return ans;
-	}
-	
-	@Override
-	public String getFileName(String base) {
-		return base + "." + sourceLocale + "_to_" + targetLocale + ".dict";
 	}
 	
 }

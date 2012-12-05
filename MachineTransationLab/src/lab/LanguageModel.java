@@ -10,8 +10,12 @@ package lab;
  */
 public class LanguageModel extends Writable {
 	
-	public static final int SENTENCE_BEGIN_WORD = -1;
-	public static final int SENTENCE_END_WORD = -2;
+	public static String getFileName(String base, String locale) {
+		return base + "." + locale + ".langMod";
+	}
+	
+	public static final int SENTENCE_BEGIN_WORD = -2;
+	public static final int SENTENCE_END_WORD = -1;
 	
 	private static final int ARRAY_OFFSET = 2;
 	
@@ -19,7 +23,8 @@ public class LanguageModel extends Writable {
 	private int wordCount;
 	private String locale;
 
-	public LanguageModel(int wordCount, String locale) {
+	public LanguageModel(String base,String locale, int wordCount) {
+		super(base);
 		this.wordCount = wordCount;
 		this.locale = locale;
 		bigrams = new int[wordCount + ARRAY_OFFSET][wordCount + ARRAY_OFFSET];
@@ -41,9 +46,4 @@ public class LanguageModel extends Writable {
 		return (float)(bigrams[word1 + ARRAY_OFFSET][word2 + ARRAY_OFFSET] + 1) / (float)sum;
 	}
 
-	@Override
-	public String getFileName(String base) {
-		return base + "." + locale + ".langMod";
-	}
-	
 }

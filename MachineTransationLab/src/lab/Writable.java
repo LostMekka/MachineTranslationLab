@@ -12,12 +12,20 @@ import java.io.*;
  */
 public abstract class Writable implements Serializable {
 	
-	public abstract String getFileName(String base);
-	
-	public boolean writeToFile(String base){
+	private String base;
+
+	public Writable(String base) {
+		this.base = base;
+	}
+
+	public String getBase() {
+		return base;
+	}
+
+	public boolean writeToFile(String filename){
 		boolean ans = true;
 		try {
-			OutputStream file = new FileOutputStream(getFileName(base));
+			OutputStream file = new FileOutputStream(filename);
 			OutputStream buffer = new BufferedOutputStream(file);
 			try (ObjectOutput output = new ObjectOutputStream(buffer)) {
 				output.writeObject(this);
@@ -30,10 +38,10 @@ public abstract class Writable implements Serializable {
 		return ans;
 	}
 	
-	public Writable loadFromFile(String base){
+	public static Writable loadFromFile(String filename){
 		try {
 			//use buffering
-			InputStream file = new FileInputStream(getFileName(base));
+			InputStream file = new FileInputStream(filename);
 			InputStream buffer = new BufferedInputStream(file);
 			try (ObjectInput input = new ObjectInputStream(buffer)) {
 				return (Writable)input.readObject();
