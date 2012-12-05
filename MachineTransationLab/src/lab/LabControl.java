@@ -152,7 +152,7 @@ public class LabControl {
 				addNewStackSentenceToList(list, hypo, w, 
 						sourceSentence, dictionary, targetLanguageModel, lengthModel);
 			}
-			printStack(list, targetWordStorage);
+			//printStack(list, targetWordStorage);
 			// promote best sentence to hypothesis
 			hypo = list.last();
 			list.remove(hypo);
