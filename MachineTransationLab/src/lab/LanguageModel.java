@@ -38,12 +38,12 @@ public class LanguageModel extends Writable {
 		bigrams[word1 + ARRAY_OFFSET][word2 + ARRAY_OFFSET]++;
 	}
 	
-	public float getBigramProbability(int word1, int word2){
+	public double getBigramProbability(int word1, int word2){
 		int sum = 1;
-		for(int i=0; i<wordCount; i++){
-			sum += bigrams[word1 + ARRAY_OFFSET][i + ARRAY_OFFSET];
+		for(int i=0; i<wordCount+ARRAY_OFFSET; i++){
+			sum += bigrams[word1 + ARRAY_OFFSET][i];
 		}
-		return (float)(bigrams[word1 + ARRAY_OFFSET][word2 + ARRAY_OFFSET] + 1) / (float)sum;
+		return (double)(bigrams[word1 + ARRAY_OFFSET][word2 + ARRAY_OFFSET] + 1) / (double)sum;
 	}
 
 }

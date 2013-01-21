@@ -8,10 +8,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -137,6 +134,37 @@ public class LabControl {
 			sourceSentence[i] = sourceWordStorage.getIndex(sentence[i]);
 			if(sourceSentence[i] == -1) err("WARNING: unknown word: " + sentence[i]);
 		}
+		err(sourceWordStorage.getString(sourceSentence));
+		int[][] greedy = new int[sourceSentence.length][5];
+		for(int i=0; i<sourceSentence.length; i++){
+			greedy[i] = dictionary.getBestTranslations(sourceSentence[i], 5);
+		}
+		for(int j=0; j<5; j++){
+			for(int i=0; i<greedy.length; i++){
+				System.out.print(targetWordStorage.getWord(greedy[i][j]) + " ");
+			}
+			System.out.println();
+		}
+		
+		// get sentence
+		int[] targetSentence = evolutionDecode(lengthModel, targetLanguageModel, dictionary, targetWordStorage, sourceSentence, 1000, 1000);
+		// print sentence
+		log(targetWordStorage.getString(targetSentence));
+	}
+	
+	private int[] evolutionDecode(LengthModel lengthModel, 
+			LanguageModel targetLanguageModel, Dictionary dictionary, WordStorage targetWordStorage, 
+			int[] sourceSentence, int populationSize, int generationCount){
+		DecodeEvolutionController ctrl = new DecodeEvolutionController(
+				lengthModel, targetLanguageModel, dictionary, targetWordStorage, sourceSentence, 
+				populationSize, generationCount);
+		while(!ctrl.isDone()) ctrl.evolveGeneration();
+		return ctrl.getBestSentence();
+	}
+	
+	private int[] stackDecode(WordStorage targetWordStorage, 
+			LengthModel lengthModel, LanguageModel targetLanguageModel, 
+			Dictionary dictionary, int[] sourceSentence){
 		// init sentences
 		SortedSet<StackSentence> list = new ConcurrentSkipListSet<>();
 		StackSentence hypo = new StackSentence(null, 
@@ -159,12 +187,8 @@ public class LabControl {
 			// check if hypothesis is complete
 			if(hypo.words.length > 0) if(hypo.words[hypo.words.length-1] == LanguageModel.SENTENCE_END_WORD) break;
 		}
-		// hypo is the target sentence. print it!
-		String s = "";
-		for(int i=1; i<hypo.words.length-1; i++){
-			s = s + targetWordStorage.getWord(hypo.words[i]) + " ";
-		}
-		log(s);
+		// hypo is the target sentence.
+		return hypo.words;
 	}
 	
 	private void print(WordStorage storage){
@@ -298,9 +322,9 @@ public class LabControl {
 		err("decoding in base \"" + base + "\" from locale \"" + sourceLocale + "\" to locale \"" + targetLocale + "\":");
 		err();
 		
-		err("reading target word storage from disk...");
+		err("reading source word storage from disk...");
 		WordStorage sourceStorage = (WordStorage)WordStorage.loadFromFile(WordStorage.getFileName(base, sourceLocale));
-		if(sourceStorage == null) err("could not read target word storage!");
+		if(sourceStorage == null) err("could not read source word storage!");
 		err("reading target word storage from disk...");
 		WordStorage targetStorage = (WordStorage)WordStorage.loadFromFile(WordStorage.getFileName(base, targetLocale));
 		if(targetStorage == null) err("could not read target word storage!");

@@ -30,6 +30,18 @@ public class WordStorage extends Writable {
 		return locale;
 	}
 	
+	public String[] getStrings(int[] indices){
+		String[] ans = new String[indices.length];
+		for(int i=0; i<indices.length; i++) ans[i] = getWord(indices[i]);
+		return ans;
+	}
+	
+	public String getString(int[] indices){
+		String ans = getWord(indices[0]);
+		for(int i=1; i<indices.length; i++) ans += " " + getWord(indices[i]);
+		return ans;
+	}
+	
 	public String getWord(int index){
 		return words.get(index);
 	}

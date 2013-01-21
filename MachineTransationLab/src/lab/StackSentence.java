@@ -14,7 +14,7 @@ import java.util.Arrays;
 public class StackSentence implements Comparable<StackSentence> {
 	
 	public int[] words;
-	public float score;
+	public double score;
 
 	public StackSentence(
 			StackSentence parent, int newWord, int[] sourceSentence, 
@@ -27,16 +27,16 @@ public class StackSentence implements Comparable<StackSentence> {
 		}
 		words[words.length - 1] = newWord;
 		// TODO: calc score from previous score
-		float bigramScore = 1f;
+		double bigramScore = 1f;
 		for(int i=0; i<words.length-1; i++){
 			bigramScore *= langMod.getBigramProbability(words[i], words[i+1]);
 		}
-		float lengthScore = lenMod.getLengthPairProbability(words.length, sourceSentence.length);
+		double lengthScore = lenMod.getLengthPairProbability(words.length, sourceSentence.length);
 		
-		float dictScore = 1f;
+		double dictScore = 1f;
 		for(int f=0; f<sourceSentence.length; f++){
 			if(sourceSentence[f] < 0) continue;
-			float targetWordScore = 0.001f;
+			double targetWordScore = 0.001f;
 			for(int e=0; e<words.length; e++){
 				if(words[e] < 0) continue;
 				targetWordScore += dict.getTranslationScore(sourceSentence[f], words[e]);
@@ -44,7 +44,7 @@ public class StackSentence implements Comparable<StackSentence> {
 			dictScore *= targetWordScore;
 		}
 		
-		score = bigramScore * lengthScore * dictScore * (float)(Math.pow(sourceSentence.length, words.length));
+		score = bigramScore * lengthScore * dictScore * (double)(Math.pow(sourceSentence.length, words.length));
 	}
 
 	@Override

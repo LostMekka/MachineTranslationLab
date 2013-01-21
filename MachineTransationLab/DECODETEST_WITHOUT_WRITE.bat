@@ -17,6 +17,6 @@ if xx%targ% EQU xx set targ=%defTarg%
 
 ::-------------------- run
 cd dist
-java -jar MachineTransationLab.jar ../../%corp%.train %src% %targ% decode < ..\DECODETEST.txt > ..\DECODEOUT.txt
+java -jar MachineTransationLab.jar ../../%corp%.train %src% %targ% decode < ..\DECODETEST.txt
 cd ..
 pause

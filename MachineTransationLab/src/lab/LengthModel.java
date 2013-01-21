@@ -38,12 +38,12 @@ public class LengthModel extends Writable {
 		lengthPairs[sourceLength-1][targetLength-1]++;
 	}
 	
-	public float getLengthPairProbability(int sourceLength, int targetLength){
+	public double getLengthPairProbability(int sourceLength, int targetLength){
 		int sum = 1;
 		for(int i=0; i<lengthPairs[sourceLength-1].length; i++){
 			sum += lengthPairs[sourceLength-1][i];
 		}
-		return (float)(lengthPairs[sourceLength-1][targetLength-1] + 1) / (float)sum;
+		return (double)(lengthPairs[sourceLength-1][targetLength-1] + 1) / (double)sum;
 	}
 
 	public int getHighestPossibleTargetLength(int sourceLength){
