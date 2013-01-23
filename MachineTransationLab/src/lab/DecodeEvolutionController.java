@@ -18,51 +18,26 @@ public class DecodeEvolutionController {
 	private final static double START_MUTATION_RATE = 40d;
 	private final static double END_MUTATION_RATE = 40d;
 	
-	public WordStorage targetWordStorage;
-	public LengthModel lengthModel;
-	public LanguageModel targetLanguageModel;
-	public Dictionary dictionary;
-	public int[] sourceSentence;
-	public double[] wordScores;
-	public double wordScoreSum, lengthScoreSum;
-	
-	private DecodeEvolutionSentence[] population;
+	private DecodeHelper helper;
+	private Sentence[] population;
 	private int populationSize, generationCount, generationsDone = 0, maxCrossings;
-	private DecodeEvolutionSentence bestSentence = null;
+	private Sentence bestSentence = null;
 	private Random random = new Random();
 
-	public DecodeEvolutionController(LengthModel lengthModel, LanguageModel targetLanguageModel, Dictionary dictionary, WordStorage targetWordStorage, int[] sourceSentence, int populationSize, int generationCount) {
+	public DecodeEvolutionController(DecodeHelper helper, int populationSize, int generationCount) {
 		// init general vars
+		this.helper = helper;
 		if(populationSize % 2 != 0) populationSize++;
-		this.lengthModel = lengthModel;
-		this.targetLanguageModel = targetLanguageModel;
-		this.dictionary = dictionary;
-		this.sourceSentence = sourceSentence;
 		this.populationSize = populationSize;
 		this.generationCount = generationCount;
-		this.targetWordStorage = targetWordStorage;
 		maxCrossings = (int)((double)populationSize / CHILD_COUNT);
-		// init score helpers
-		wordScores = new double[targetWordStorage.getWordCount()];
-		wordScoreSum = 0d;
-		for(int i=0; i<wordScores.length; i++){
-			wordScores[i] = 0d;
-			for(int j=0; j<sourceSentence.length; j++){
-				wordScores[i] += dictionary.getTranslationScore(sourceSentence[j], i);
-			}
-			wordScoreSum += wordScores[i];
-		}
-		lengthScoreSum = 0d;
-		for(int i=1; i<=lengthModel.getHighestPossibleTargetLength(sourceSentence.length); i++){
-			lengthScoreSum += lengthModel.getLengthPairProbability(sourceSentence.length, i);
-		}
 		// init population
-		population = new DecodeEvolutionSentence[populationSize];
-		DecodeEvolutionSentence s1 = new DecodeEvolutionSentence(this);
+		population = new Sentence[populationSize];
+		Sentence s1 = new Sentence(helper);
 		population[0] = s1;
 		bestSentence = s1;
 		for(int i=1; i<populationSize; i++){
-			DecodeEvolutionSentence s = new DecodeEvolutionSentence(this);
+			Sentence s = new Sentence(helper);
 			population[i] = s;
 			if(s.score > bestSentence.score) bestSentence = s;
 		}
@@ -96,10 +71,10 @@ public class DecodeEvolutionController {
 				}
 			}
 			// get the 2 best sentences corresponding to the indices
-			DecodeEvolutionSentence p1 = population[indices[0]];
-			DecodeEvolutionSentence p2 = population[indices[1]];
+			Sentence p1 = population[indices[0]];
+			Sentence p2 = population[indices[1]];
 			for(int i=2; i<CHILD_COUNT; i++){
-				DecodeEvolutionSentence s = population[indices[i]];
+				Sentence s = population[indices[i]];
 				if(s.score > p1.score){
 					p2 = p1;
 					p1 = s;
@@ -112,22 +87,30 @@ public class DecodeEvolutionController {
 				mutationCounter += mutationRate;
 				int mutationCount = (int)mutationCounter;
 				mutationCounter -= mutationCount;
-				DecodeEvolutionSentence s;
+				Sentence s;
 				if(i == 0){
-					s = new DecodeEvolutionSentence(this);
+					s = new Sentence(helper);
 				} else {
-					s = new DecodeEvolutionSentence(p1, p2, mutationCount);
+					s = new Sentence(p1, p2, mutationCount);
 				}
 				population[indices[i]] = s;
 				// if the offspring sentence is better than all others, crown it king!!!
-				if(s.score > bestSentence.score) bestSentence = s;
+				if(s.score > bestSentence.score){
+					bestSentence = s;
+					System.out.println(generationsDone + ":");
+					helper.printAlignmentArray(s.sentence);
+				}
 			}
 		}
 		// the generation is over
 		generationsDone++;
-		if(generationsDone % 100 == 0){
-			bestSentence.printDictDistribution();
-		}
+//		if(generationsDone % 50 == 0){
+//			DecodeEvolutionSentence best = population[0];
+//			for(int i=1; i<population.length; i++){
+//				if(population[i].score > best.score) best = population[i];
+//			}
+//			best.printAlignmentArray();
+//		}
 	}
 	
 	public int[] getBestSentence(){

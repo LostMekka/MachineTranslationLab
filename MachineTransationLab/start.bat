@@ -1,7 +1,7 @@
 @echo off
 
 ::-------------------- defaults
-set defCorp=2048
+set defCorp=4096
 set defSrc=en
 set defTarg=de
 set defAct=decode
