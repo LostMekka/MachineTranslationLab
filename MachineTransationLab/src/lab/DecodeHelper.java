@@ -109,7 +109,7 @@ public class DecodeHelper {
 		}
 		bigramScore *= targetLanguageModel.getBigramProbability(LanguageModel.SENTENCE_BEGIN_WORD, targetSentence[0]);
 		bigramScore *= targetLanguageModel.getBigramProbability(targetSentence[targetSentence.length-1], LanguageModel.SENTENCE_END_WORD);
-		bigramScore = Math.pow(bigramScore, 0.1d / (targetSentence.length + 1));
+		bigramScore = Math.pow(bigramScore, 1d / (targetSentence.length + 1));
 		return bigramScore;
 	}
 	

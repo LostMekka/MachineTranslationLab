@@ -62,9 +62,9 @@ public class Dictionary extends Writable {
 		}
 		// normalize tmp
 		for(int tw=0; tw<targetWordCount; tw++){
-			double sum = 0d;
+			double sum = 1d;
 			for(int sw=0; sw<sourceWordCount; sw++) sum += tmpTrans[sw][tw];
-			for(int sw=0; sw<sourceWordCount; sw++) tmpTrans[sw][tw] = (tmpTrans[sw][tw] + 1d) / sum;
+			for(int sw=0; sw<sourceWordCount; sw++) tmpTrans[sw][tw] = tmpTrans[sw][tw] / sum;
 		}
 		// take over values and calc diff
 		lastDiff = 0d;
