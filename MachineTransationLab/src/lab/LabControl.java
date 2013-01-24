@@ -82,7 +82,7 @@ public class LabControl {
 		}
 	}
 	
-	private void trainDictionary(WordStorage sourceWordStorage, WordStorage targetWordStorage, Corpus sourceCorpus, Corpus targetCorpus, Dictionary dictionary){
+	private void trainDictionary(Corpus sourceCorpus, Corpus targetCorpus, Dictionary dictionary){
 		log("(you can stop the training with ctrl-c and resume later with the \"resumetrain\" command)");
 		double delta = 1000f;
 		int i = 1;
@@ -90,7 +90,6 @@ public class LabControl {
 			delta = dictionary.iter(sourceCorpus.getSentences(), targetCorpus.getSentences());
 			System.out.format("    iteration %4d - delta = %13.10f\n", i, delta);
 			i++;
-			lookup("needs", sourceWordStorage, targetWordStorage, dictionary);
 			if(shutdownManager.isShutdownRequested()) break;
 		}
 	}
@@ -327,7 +326,7 @@ public class LabControl {
 		try{
 			shutdownManager.beginShutdownInjection();
 			log("training dictionary...");
-			trainDictionary(sourceStorage, targetStorage, sourceCorpus, targetCorpus, dictionary);
+			trainDictionary(sourceCorpus, targetCorpus, dictionary);
 			log("writing dictionary to disk...");
 			dictionary.writeToFile(Dictionary.getFileName(base, sourceLocale, targetLocale));
 		} finally {
@@ -356,7 +355,7 @@ public class LabControl {
 		try{
 			shutdownManager.beginShutdownInjection();
 			log("resume training dictionary...");
-			trainDictionary(null, null, sourceCorpus, targetCorpus, dictionary);
+			trainDictionary(sourceCorpus, targetCorpus, dictionary);
 			log("writing dictionary to disk...");
 			dictionary.writeToFile(base);
 		} finally {
